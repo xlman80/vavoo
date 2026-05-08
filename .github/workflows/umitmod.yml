@@ -1,34 +1,55 @@
-name: ÜmitM0d IPTV Otomatik
+name: Vavoo Kontrol
 
 on:
   schedule:
-    - cron: "0 */3 * * *" # Her 3 saatte bir
-  workflow_dispatch: # Manuel çalıştırma
+    - cron: '0 */2 * * *'  
+  workflow_dispatch:        
 
 jobs:
-  run-umitmod:
+  update-vavoo:
     runs-on: ubuntu-latest
-    steps:
-      - name: Repo'yu Klonla
-        uses: actions/checkout@v4
 
-      - name: Python Kur
+    permissions:
+      contents: write  
+
+    steps:
+      - name: Repo'yu klonla
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }} 
+
+      - name: Python kurulumu
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: '3.x'
 
-      - name: Bağımlılıkları Kur
-        run: |
-          pip install requests
+      - name: Gerekli paketleri yükle
+        run: pip install requests
 
-      - name: ÜmitM0d Script Çalıştır
-        run: |
-          python umitm0d.py
+      - name: Alive 1
+        run: curl https://kerimmkirac-vavoo.hf.space/
 
-      - name: Playlist'i Commit Et
+      - name: Vavoo Tr
+        run: python vavoo.py
+
+      - name: Vavoo All
+        run: python vavooall.py
+
+      - name: Değişiklik kontrolü
+        id: git-check
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add umitm0d.m3u
-          git commit -m "Otomatik güncelleme: $(date '+%Y-%m-%d %H:%M:%S')" || echo "Değişiklik yok"
-          git push    
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit ve push 
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git add vavoo.m3u vavooall.m3u
+          git commit -m "🔁 M3U dosyaları güncellendi - $(date +'%Y-%m-%d %H:%M:%S')"
+          git push origin HEAD:main
